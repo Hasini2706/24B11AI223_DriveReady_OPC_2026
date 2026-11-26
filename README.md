@@ -14,7 +14,10 @@ Repository for the **DriveReady OPC 2026 — Agentic AI** track, featuring hands
 ├── Day-2/
 │   ├── task.py
 │   └── README.md
-└── Day-3/
+├── Day-3/
+│   ├── task.py
+│   └── README.md
+└── Day-4/
     ├── task.py
     └── README.md
 ```
@@ -28,6 +31,7 @@ Repository for the **DriveReady OPC 2026 — Agentic AI** track, featuring hands
 | **Day 1** | **LLM Foundations & Prompt Guard** | • Inference with `ChatGroq` (`openai/gpt-oss-120b`)<br>• System persona and operational constraints<br>• Prompt injection detection via `meta-llama/llama-prompt-guard-2-22m` | [Day-1 README](Day-1/README.md) |
 | **Day 2** | **Dynamic Prompts & Structured Chat** | • Dynamic context injection (catalog & pricing via JSON)<br>• Tool logging decorators (`@log_call`)<br>• Sliding window multi-turn memory (`MAX_TURNS`)<br>• Few-shot intent classification (`order`, `question`, `complaint`)<br>• Strict structured JSON order extraction | [Day-2 README](Day-2/README.md) |
 | **Day 3** | **LCEL, Evaluation Harness & Travel Agent** | • Google GenAI (`ChatGoogleGenerativeAI` with `gemini-3.8-flash`)<br>• CityExpress Bus Travels assistant (bus availability, distance, fares & seat booking)<br>• Modern LCEL (`prompt \| llm \| parser`) & memory via `MessagesPlaceholder("history")`<br>• Automated regression test suite (`run_tests` with assertion CSV)<br>• Agent foundations with `create_agent` | [Day-3 README](Day-3/README.md) |
+| **Day 4** | **Autonomous Agent & Google Sheets Tools** | • `ChatGroq` (`openai/gpt-oss-20b`) autonomous agent (`TravelMate`)<br>• Custom tool calling (`search_buses`, `book_bus`)<br>• Pydantic schema validation (`Booking`)<br>• Live external database integration with Google Sheets via `gspread`<br>• Explicit confirmation guardrails & inventory state tracking | [Day-4 README](Day-4/README.md) |
 
 ---
 
@@ -73,6 +77,10 @@ Set up your environment variables for Groq and Google GenAI:
 - **Day 3**:
   ```bash
   python Day-3/task.py
+  ```
+- **Day 4**:
+  ```bash
+  python Day-4/task.py
   ```
 
 ---

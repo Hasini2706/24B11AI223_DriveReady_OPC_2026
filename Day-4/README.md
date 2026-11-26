@@ -1,44 +1,69 @@
-# Day 4: Autonomous Tool-Calling Agent & Google Sheets Integration
+# Day 4: Autonomous Tool-Calling Agent, Structured Outputs & Google Sheets Integration
 
 ## 📌 Overview
-Day 4 advances conversational AI into a fully autonomous, tool-calling **Agentic AI System**. Building on previous prompt-steering foundations, this module introduces **TravelMate**, a smart bus booking assistant capable of querying real-time bus catalogs, calculating dynamic fares, validating passenger inputs with **Pydantic**, requiring explicit user confirmation before state changes, and persisting finalized bookings directly to **Google Sheets**.
+Day 4 advances conversational AI into a production-grade, autonomous **Agentic AI System**. Implementing **TravelMate** (a bus booking assistant powered by `ChatGroq`), this module integrates deterministic tools for bus searching, structured entity extraction using **Pydantic** with `Literal` types, persistent transaction logging to **Google Sheets** via `gspread`, explicit confirmation safety guardrails, and message-trace observability for evaluating tool-call metrics.
 
 ---
 
 ## 📂 Files
-- [`task.py`](task.py): Complete agent implementation featuring custom tool definitions (`search_buses`, `book_bus`), Google Sheets synchronization via `gspread`, and multi-turn stateful conversation flow.
+- [`task.py`](task.py): Complete Python implementation featuring Pydantic schemas, custom LangChain tools (`search_buses`, `log_booking`), structured output parsing, multi-turn stateful agent conversations, Google Sheets persistence, and tool invocation analytics.
 
 ---
 
 ## 🎯 Key Concepts & Implementation
 
-### 1. Tool-Calling Agent Architecture (`create_agent`)
-- Powered by `ChatGroq(model="openai/gpt-oss-20b")` for rapid, deterministic reasoning.
-- Equipped with custom tools using LangChain's `@tool` decorator:
-  - **`search_buses(from_city, to_city, date)`**: Queries available bus routes, departure schedules, distances, per-seat pricing, and real-time seat availability.
-  - **`book_bus(name, bus_id, date, seats)`**: Validates booking requests, deducts seat counts from inventory, calculates total fares, and logs the transaction.
+### 1. External Database Integration (Google Sheets via `gspread`)
+- Connects to a live Google Sheet using `gspread` authorized via `google.auth`:
+  ```python
+  gc = gspread.authorize(creds)
+  sh = gc.open_by_key("1U5Xg1jj8vTuTFckpZ4BGfbXK4EMbTxcMCpY60VuPum4")
+  ws = sh.sheet1
+  ```
+- Automatically initializes column headers if empty:
+  `["name", "bus_id", "from", "to", "date", "seats", "total"]`
 
-### 2. Schema Validation with Pydantic
-- Implements a strict `Booking` schema inheriting from `pydantic.BaseModel`:
+### 2. Strict Schema Validation with Pydantic & `Literal`
+- Defines a robust `Booking` model enforcing exact bus IDs and minimum seat constraints:
   ```python
   class Booking(BaseModel):
-      name: str = Field(description="Passenger name")
-      bus_id: str = Field(description="Selected bus ID")
-      date: str = Field(description="Journey date in YYYY-MM-DD")
+      name: str = Field(description="Passenger full name")
+      bus_id: Literal["B101", "B102", "B103"] = Field(description="Selected bus ID")
+      date: str = Field(description="Journey date in YYYY-MM-DD format")
       seats: int = Field(ge=1, description="Number of seats")
   ```
-- Ensures parameter type safety and business logic constraints (e.g., minimum 1 seat) before external API calls.
+- Prevents invalid bus identifiers or negative/zero seat allocations before downstream execution.
 
-### 3. Persistent Database Logging via Google Sheets
-- Authenticates and interacts with Google Drive & Sheets using `gspread` and `google.auth`.
-- Connects to an external spreadsheet, initializes column headers (`name`, `bus_id`, `from`, `to`, `date`, `seats`, `total`), and atomically appends confirmed booking records (`ws.append_row`).
+### 3. Custom LangChain Tools (`@tool`)
+- **`search_buses(from_city: str, to_city: str, date: str) -> str`**:
+  - Searches deterministic catalog (`BUSES`) for matching routes and travel dates.
+  - Returns departure time, route distance, per-seat fare, and only buses with available seats (`seats > 0`).
+- **`log_booking(name: str, bus_id: str, date: str, seats: int) -> str`**:
+  - Validates bus existence, schedule match, and remaining seat capacity.
+  - Calculates the total fare (`fare * seats`).
+  - Atomically appends the transaction row to Google Sheets (`ws.append_row`).
+  - Decrements in-memory seat availability to prevent double-booking.
 
-### 4. Safety Guardrails & Confirmation Flow
-- **Human-in-the-Loop Confirmation**: The system prompt explicitly enforces collecting all booking details and prompting the user for clear confirmation before invoking the destructive/write action (`book_bus`).
-- **Hallucination Prevention**: Restricts the agent to verified route facts returned by `search_buses`.
+### 4. Structured Output Parsing (`llm.with_structured_output`)
+- Demonstrates direct structured information extraction without agent overhead:
+  ```python
+  structured_llm = llm.with_structured_output(Booking)
+  record = structured_llm.invoke("Ravi wants two seats on bus B102 for 5 December 2026.")
+  ```
+- Reliably parses varied natural language inquiries into typed `Booking` objects.
 
-### 5. Multi-Turn Conversation Memory
-- Maintains full dialog history using message arrays (`[{"role": "user", "content": ...}, ...]`), enabling the agent to retain passenger preferences across turns.
+### 5. Autonomous Multi-Turn Agent (`create_agent`)
+- Configured with `ChatGroq(model="openai/gpt-oss-20b", temperature=0.2)` and tools `[search_buses, log_booking]`.
+- **System Prompt & Safety Guardrails**:
+  - Requires collecting all necessary details (passenger name, bus ID, travel date, seat quantity).
+  - Enforces calculating and presenting the total fare to the passenger.
+  - **Human-in-the-Loop Confirmation**: Calls `log_booking` *only* after explicit confirmation from the customer.
+- **Conversational Memory**: Maintains state across dialog turns using accumulated message history.
+
+### 6. Observability, Message Tracing & Tool Call Metrics
+- Inspects message chains with `msg.pretty_print()` to visualize reasoning steps, tool requests, and tool outputs.
+- Quantifies agent performance by programmatically counting:
+  - **Tool calls**: `sum(len(getattr(msg, "tool_calls", [])) for msg in messages)`
+  - **Model responses**: `sum(1 for msg in messages if msg.type == "ai")`
 
 ---
 
@@ -49,23 +74,23 @@ sequenceDiagram
     actor User as Passenger
     participant Agent as TravelMate Agent
     participant Tool1 as search_buses()
-    participant Tool2 as book_bus()
+    participant Tool2 as log_booking()
     participant Sheet as Google Sheets
 
     User->>Agent: "Find buses from Hyderabad to Bangalore on 2026-12-05"
-    Agent->>Tool1: search_buses("Hyderabad", "Bangalore", "2026-12-05")
+    Agent->>Tool1: search_buses(from_city="Hyderabad", to_city="Bangalore", date="2026-12-05")
     Tool1-->>Agent: Bus B101, B102 details & seat availability
-    Agent-->>User: Displays available buses, fares, and timings
+    Agent-->>User: Displays available schedules, fares, and timings
 
-    User->>Agent: "I want bus B102. Name: Ravi, 2 seats"
-    Agent-->>User: "Please confirm booking 2 seats on B102 for Ravi (Total: Rs 1500)?"
+    User->>Agent: "I choose bus B102. My name is Ravi and I need 2 seats"
+    Agent-->>User: "Total fare is Rs 1500. Please confirm to proceed with booking."
 
-    User->>Agent: "Yes, I confirm. Please book."
-    Agent->>Tool2: book_bus(name="Ravi", bus_id="B102", date="2026-12-05", seats=2)
-    Tool2->>Sheet: Append booking row & update inventory
+    User->>Agent: "I confirm. Please book the 2 seats."
+    Agent->>Tool2: log_booking(name="Ravi", bus_id="B102", date="2026-12-05", seats=2)
+    Tool2->>Sheet: Append row [name, bus_id, from, to, date, seats, total]
     Sheet-->>Tool2: Success
-    Tool2-->>Agent: Booking confirmed and saved to Google Sheets
-    Agent-->>User: Displays final confirmation & total fare
+    Tool2-->>Agent: "Booking saved! Ravi, B102, 2 seat(s), total Rs 1500."
+    Agent-->>User: "Your booking for 2 seats on bus B102 is confirmed and saved to Google Sheets!"
 ```
 
 ---
@@ -73,12 +98,12 @@ sequenceDiagram
 ## 🚀 Setup & Execution
 
 ### Prerequisites
-Install the required packages:
+Install required dependencies:
 ```bash
 pip install langchain langchain-core langchain-groq groq gspread google-auth pydantic
 ```
 
-### Environment Variables & Authentication
+### Environment Variables & Credentials
 1. **Groq API Key**:
    - **Windows (PowerShell)**:
      ```powershell
@@ -88,9 +113,10 @@ pip install langchain langchain-core langchain-groq groq gspread google-auth pyd
      ```bash
      export GROQ_API_KEY="your-groq-api-key"
      ```
-2. **Google Cloud Authentication**:
-   - In Google Colab: Handled automatically via `auth.authenticate_user()`.
-   - In Local Environment: Configure a Google Cloud Service Account with Google Sheets API enabled and point `GOOGLE_APPLICATION_CREDENTIALS` to your credentials JSON.
+
+2. **Google Cloud / Sheets Authentication**:
+   - **In Google Colab**: Handled automatically via `auth.authenticate_user()`.
+   - **In Local Environments**: Use a Google Cloud Service Account with Google Sheets and Google Drive APIs enabled, and ensure credentials are provided via `GOOGLE_APPLICATION_CREDENTIALS`.
 
 ### Run the Script
 ```bash

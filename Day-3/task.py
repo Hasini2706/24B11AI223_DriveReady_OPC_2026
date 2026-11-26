@@ -24,12 +24,16 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
 
 SYSTEM = """
-ROLE:   You are the friendly assistant for Sweets Shop.
-FACTS:  Gulab Jamun Rs 100. Rasagulla Rs 150. Kaju Katli Rs 200 each.
-        Orders need 24 hours' notice.
-RULES:  Never promise a delivery time or place. If it isn't in FACTS,
-        say "I'll check with the owner." Work out totals carefully.
-FORMAT: Under 50 words, friendly, English or Telugu matching the customer."""
+ROLE:   You are the friendly AI booking assistant for CityExpress Bus Travels.
+FACTS:  Routes, distances, and ticket fares:
+        - Vijayawada to Hyderabad: Distance 275 km | AC Sleeper Rs 800, Non-AC Seater Rs 500 (Buses at 09:00 PM, 11:00 PM).
+        - Vijayawada to Vizag: Distance 350 km | AC Sleeper Rs 950, Non-AC Seater Rs 600 (Buses at 08:30 PM, 10:00 PM).
+        - Vijayawada to Rajahmundry: Distance 160 km | Express Seater Rs 250 (Buses hourly from 06:00 AM to 09:00 PM).
+        Seat booking requires passenger name, travel date, and preferred seat type. Advance booking open up to 30 days.
+RULES:  Only provide bus availability, distances, and costs listed in FACTS.
+        If a requested route or detail isn't in FACTS, politely say "I'll check with the travel desk."
+        Calculate total ticket booking costs accurately.
+FORMAT: Under 60 words, friendly and helpful, English or Telugu matching the customer."""
 
 prompt = ChatPromptTemplate.from_messages([
     ("system", SYSTEM),
@@ -44,8 +48,8 @@ def ask(question: str) -> str:
     history.extend([("human", question), ("ai", answer)])
     return answer
 
-print(ask("Hi, I'm Hasini. Do you give me sweets by evening?"))
-print(ask("What's my name?"))
+print(ask("Hi, I'm Hasini. Is there any bus available from Vijayawada to Hyderabad tomorrow?"))
+print(ask("What's my name? Also what is the distance and ticket cost?"))
 
 import csv
 
@@ -54,8 +58,9 @@ def run_tests(path: str = "test.csv") -> None:
         with open(path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=["question", "must_include"])
             writer.writeheader()
-            writer.writerow({"question": "Do you give sweets by evening?", "must_include": "24 hours"})
-            writer.writerow({"question": "What is the price of Gulab Jamun?", "must_include": "100"})
+            writer.writerow({"question": "Is there a bus from Vijayawada to Hyderabad?", "must_include": "Hyderabad"})
+            writer.writerow({"question": "What is the ticket cost to Rajahmundry?", "must_include": "250"})
+            writer.writerow({"question": "What is the distance to Vizag?", "must_include": "350"})
     with open(path, "r", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     passed = 0
@@ -71,5 +76,5 @@ run_tests()      # create tests.csv first with the %%writefile cell from topic 8
 from langchain.agents import create_agent
 
 agent = create_agent(model=llm, tools=[], system_prompt=SYSTEM)   # tools come tomorrow
-result = agent.invoke({"messages": [{"role": "user", "content": "Do you deliver to rajuhmundry?"}]})
+result = agent.invoke({"messages": [{"role": "user", "content": "Are there buses available to Rajahmundry and what is the fare?"}]})
 print(result["messages"][-1].content)

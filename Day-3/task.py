@@ -52,12 +52,7 @@ print(ask("What's my name?"))
 import csv
 
 def run_tests(path: str = "test.csv") -> None:
-    try:
-        rows = list(csv.DictReader(open(path, encoding="utf-8")))
-    except FileNotFoundError:
-        import os
-        base_dir = os.path.dirname(__file__) if "__file__" in globals() else "."
-        rows = list(csv.DictReader(open(os.path.join(base_dir, path), encoding="utf-8")))
+    rows = list(csv.DictReader(open(path)))
     passed = 0
     for row in rows:
         answer = chain.invoke({"history": [], "question": row["question"]})
@@ -66,7 +61,7 @@ def run_tests(path: str = "test.csv") -> None:
         print("PASS" if ok else "FAIL", "|", row["question"], "→", answer[:70])
     print(f"\n{passed}/{len(rows)} passed ({passed / len(rows):.0%})")
 
-run_tests()      # create tests.csv first with the %%writefile cell from topic 8
+run_tests()      # create tests.csv first with the %%writefile cell from topic 8 # create tests.csv first with the %%writefile cell from topic 8
 
 from langchain.agents import create_agent
 

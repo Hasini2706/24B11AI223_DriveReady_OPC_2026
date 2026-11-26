@@ -24,16 +24,14 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
 
 SYSTEM = """
-ROLE:   You are the friendly AI booking assistant for CityExpress Bus Travels.
-FACTS:  Routes, distances, and ticket fares:
-        - Vijayawada to Hyderabad: Distance 275 km | AC Sleeper Rs 800, Non-AC Seater Rs 500 (Buses at 09:00 PM, 11:00 PM).
-        - Vijayawada to Vizag: Distance 350 km | AC Sleeper Rs 950, Non-AC Seater Rs 600 (Buses at 08:30 PM, 10:00 PM).
-        - Vijayawada to Rajahmundry: Distance 160 km | Express Seater Rs 250 (Buses hourly from 06:00 AM to 09:00 PM).
-        Seat booking requires passenger name, travel date, and preferred seat type. Advance booking open up to 30 days.
-RULES:  Only provide bus availability, distances, and costs listed in FACTS.
-        If a requested route or detail isn't in FACTS, politely say "I'll check with the travel desk."
-        Calculate total ticket booking costs accurately.
-FORMAT: Under 60 words, friendly and helpful, English or Telugu matching the customer."""
+ROLE:   You are the friendly assistant for Travel Agency.
+FACTS:  Bus to Hyderabad distance 275 km, ticket Rs 500.
+        Bus to Vizag distance 350 km, ticket Rs 600.
+        Bus to Rajahmundry distance 160 km, ticket Rs 250.
+        Seat booking needs 24 hours' notice.
+RULES:  Never promise a departure or arrival time. If it isn't in FACTS,
+        say "I'll check with the owner." Work out totals carefully.
+FORMAT: Under 50 words, friendly, English or Telugu matching the customer."""
 
 prompt = ChatPromptTemplate.from_messages([
     ("system", SYSTEM),
@@ -48,25 +46,18 @@ def ask(question: str) -> str:
     history.extend([("human", question), ("ai", answer)])
     return answer
 
-print(ask("Hi, I'm Hasini. Is there any bus available from Vijayawada to Hyderabad tomorrow?"))
-print(ask("What's my name? Also what is the distance and ticket cost?"))
+print(ask("Hi, I'm Hasini. Do you have a bus to Hyderabad by evening?"))
+print(ask("What's my name?"))
 
 import csv
 
-def run_tests(path: str = None) -> None:
-    if path is None:
+def run_tests(path: str = "test.csv") -> None:
+    try:
+        rows = list(csv.DictReader(open(path, encoding="utf-8")))
+    except FileNotFoundError:
+        import os
         base_dir = os.path.dirname(__file__) if "__file__" in globals() else "."
-        local_path = os.path.join(base_dir, "test.csv")
-        path = local_path if os.path.exists(local_path) else "test.csv"
-    if not os.path.exists(path):
-        with open(path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=["question", "must_include"])
-            writer.writeheader()
-            writer.writerow({"question": "What is the distance from Vijayawada to Hyderabad?", "must_include": "275"})
-            writer.writerow({"question": "What is the ticket cost to Rajahmundry?", "must_include": "250"})
-            writer.writerow({"question": "What is the distance to Vizag?", "must_include": "350"})
-    with open(path, "r", encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
+        rows = list(csv.DictReader(open(os.path.join(base_dir, path), encoding="utf-8")))
     passed = 0
     for row in rows:
         answer = chain.invoke({"history": [], "question": row["question"]})
@@ -80,5 +71,5 @@ run_tests()      # create tests.csv first with the %%writefile cell from topic 8
 from langchain.agents import create_agent
 
 agent = create_agent(model=llm, tools=[], system_prompt=SYSTEM)   # tools come tomorrow
-result = agent.invoke({"messages": [{"role": "user", "content": "Are there buses available to Rajahmundry and what is the fare?"}]})
+result = agent.invoke({"messages": [{"role": "user", "content": "Do you have a bus to rajuhmundry?"}]})
 print(result["messages"][-1].content)

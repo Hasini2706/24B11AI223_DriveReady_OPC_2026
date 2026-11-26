@@ -53,12 +53,16 @@ print(ask("What's my name? Also what is the distance and ticket cost?"))
 
 import csv
 
-def run_tests(path: str = "test.csv") -> None:
+def run_tests(path: str = None) -> None:
+    if path is None:
+        base_dir = os.path.dirname(__file__) if "__file__" in globals() else "."
+        local_path = os.path.join(base_dir, "test.csv")
+        path = local_path if os.path.exists(local_path) else "test.csv"
     if not os.path.exists(path):
         with open(path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=["question", "must_include"])
             writer.writeheader()
-            writer.writerow({"question": "Is there a bus from Vijayawada to Hyderabad?", "must_include": "Hyderabad"})
+            writer.writerow({"question": "What is the distance from Vijayawada to Hyderabad?", "must_include": "275"})
             writer.writerow({"question": "What is the ticket cost to Rajahmundry?", "must_include": "250"})
             writer.writerow({"question": "What is the distance to Vizag?", "must_include": "350"})
     with open(path, "r", encoding="utf-8") as f:
